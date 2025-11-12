@@ -4,7 +4,13 @@ import Task from "../models/task.js";
 export async function createTask(request, response) {
   try {
     const { title, description, priority, dueDate } = request.body;
-    const task = await Task.create({ title, description, priority, dueDate });
+    const task = await Task.create({
+      title,
+      description,
+      priority,
+      dueDate,
+      userId: request.user.id,
+    });
     response.status(201).json(task);
   } catch (error) {
     response.status(500).json({ error: error.message });
@@ -14,7 +20,10 @@ export async function createTask(request, response) {
 //GET route
 export async function getAllTasks(request, response) {
   try {
-    const tasks = await Task.findAll();
+    const tasks = await Task.findAll({
+      where: { userId: request.user.id },
+    });
+
     response.status(200).json(tasks);
   } catch (error) {
     response.status(500).json({ error: error.message });
@@ -24,7 +33,9 @@ export async function getAllTasks(request, response) {
 //GET route by ID
 export async function getTaskById(request, response) {
   try {
-    const task = await Task.findByPk(request.params.id);
+    const task = await Task.findOne({
+      where: { id: request.params.id, userId: request.user.id },
+    });
     if (!task) {
       return response.status(404).json({ message: "Task not found" });
     }
@@ -34,23 +45,19 @@ export async function getTaskById(request, response) {
   }
 }
 
-
-export async function deleteTaskById(request,response){
+export async function deleteTaskById(request, response) {
   try {
-    const idToDelete = request.params.id;
-
-    // --- Start Debugging ---
-    console.log(`Attempting to delete task with ID: ${idToDelete}`);
-    const allTasksInDB = await Task.findAll({ attributes: ['id', 'title'] });
-    console.log('Current tasks in the database:', JSON.stringify(allTasksInDB, null, 2));
-    // --- End Debugging ---
-
-    const task = await Task.findByPk(idToDelete);
+    const task = await Task.findOne({
+      where: {
+        id: request.params.id,
+        userId: request.user.id, // Ensure we only find a task belonging to this user
+      },
+    });
 
     if (!task) {
-      console.log(`Task with ID ${idToDelete} was not found.`);
-      return response.status(404).json({message:"Task not found"});
+      return response.status(404).json({ message: "Task not found" });
     }
+
     await task.destroy();
     response.status(204).send();
   } catch (error) {
